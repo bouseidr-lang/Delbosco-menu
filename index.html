@@ -86,7 +86,7 @@ const MENU=[
   {n:"Escalope",s:[["Mini",8],["Moy.",13.5],["Fam.",16.5]]},
   {n:"Crunchy",s:[["Mini",8.5],["Moy.",15],["Fam.",17.5]]},
   {n:"Mexicain",d:"piquant, poivron, oignon, viande hachée",s:[["Moy.",15.5],["Fam.",19]]},
-  {n:"4 fromages",d:"emmental, gruyère, mozzarella, parmesan",s:[["Moy.",17],["Fam.",20]]}]},
+  {n:"4 fromages",d:"4 fromages au choix",s:[["Moy.",17],["Fam.",20]]}]},
  {c:"Tacos",items:[
   {n:"Poulet",s:[["L",12.5],["XL",15]]},
   {n:"Crunchy",s:[["L",13.5],["XL",16]]},
@@ -112,7 +112,7 @@ const fmt=n=>(Math.round(n*1000)/1000).toString().replace('.',',')+' DT';
 const keyOf=(c,n,s)=>c+'|'+n+'|'+s;
 const label=(c,n,s)=>(c==="Suppléments"?"+ ":"")+(c==="Pizza"||c==="Tacos"||c==="Baguette"||c==="Ciabatta"||c==="Makloub"||c==="Taco/Burger"?c+" ":"")+n+(s?" "+s:"");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const SAUCES=["Pesto","Moutarde","Spicy","Mayo","Barbecue","Burger","Del Bosco","Ketchup","Fromagère","Harissa","Mechouia"],FROMAGES=["Mozzarella","Gruyère","Emmental","Cheddar"],NEEDOPT=["Tacos","Taco/Burger"];
+const SAUCES=["Pesto","Moutarde","Spicy","Mayo","Barbecue","Burger","Del Bosco","Ketchup","Fromagère","Harissa","Mechouia"],FROMAGES=["Mozzarella","Gruyère","Emmental","Cheddar","Camembert"],PIZ4=["Mozzarella","Gruyère","Emmental","Cheddar","Parmesan","Camembert"],NEEDOPT=["Tacos","Taco/Burger"];
 let pick=null,view="home";
 const CATI={"Pizza":["🍕","pizza","Mini, Moyenne, Familiale"],"Tacos":["🌮","tacos","L ou XL"],"Taco/Burger":["🌮🍔","taco-burger","Le 2 en 1"],"Baguette":["🥖","baguette","Moyenne ou Maxi"],"Ciabatta":["🥪","ciabatta",""],"Makloub":["🌯","makloub",""],"Suppléments":["🧀","supplements","Fromages, poulet, crunchy"],"Boissons":["🥤","boissons","Eau, soda"]};
 const CI=c=>CATI[c]||["🍽️",c.toLowerCase().replace(/[^a-z]/g,""),""];
@@ -156,10 +156,10 @@ function renderMenu(){
   const cat=MENU.find(x=>x.c===tab);
   const tabs=MENU.map(x=>`<button data-tab="${esc(x.c)}" aria-pressed="${x.c===tab}">${esc(x.c)}</button>`).join('');
   const items=cat.items.map(it=>`<div class="item"><h3>${esc(it.n)}</h3>${it.d?`<small>${esc(it.d)}</small>`:''}<div class="sz">${it.s.map(([sz,p])=>{const q=qtyOf(cat.c,it.n,sz);return `<button data-add="${esc(it.n)}" data-sz="${esc(sz)}" data-p="${p}">${q?`<i class="q" style="font-style:normal">${q}</i>`:''}<span class="l">${esc(sz||'Prix')}</span><span class="p">${fmt(p).replace(' DT','')}</span></button>`}).join('')}</div></div>`).join('');
-  const note=(cat.c==="Tacos"||cat.c==="Taco/Burger")?`<p class="note" style="margin:0 0 10px">Pour chaque tacos : 3 sauces au choix et 1 seul fromage.</p>`:'';
+  const note=cat.c==="Tacos"?`<p class="note" style="margin:0 0 10px">Pour chaque tacos : 3 sauces au choix et 1 seul fromage.</p>`:cat.c==="Taco/Burger"?`<p class="note" style="margin:0 0 10px">3 sauces au choix et 1 seul fromage. Le Del Bosco inclut déjà les 4 fromages.</p>`:cat.c==="Pizza"?`<p class="note" style="margin:0 0 10px">Pizza 4 fromages : tu choisis tes 4 fromages.</p>`:'';
   $("#main").innerHTML=`<div class="tabs">${tabs}</div>${note}<div class="grid">${items}</div>`;
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
-  document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const p=parseFloat(b.dataset.p);if(NEEDOPT.includes(cat.c)){pick={c:cat.c,n:b.dataset.add,s:b.dataset.sz,p,sauces:[],fromage:""};render()}else add(cat.c,b.dataset.add,b.dataset.sz,p)});
+  document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const p=parseFloat(b.dataset.p);if(NEEDOPT.includes(cat.c)||(cat.c==="Pizza"&&b.dataset.add==="4 fromages")){pick={c:cat.c,n:b.dataset.add,s:b.dataset.sz,p,sauces:[],fromage:"",fr4:[]};render()}else add(cat.c,b.dataset.add,b.dataset.sz,p)});
 }
 function renderSheet(){
   const lines=Object.entries(cart).map(([k,l])=>`<div class="line"><div class="nm">${esc(label(l.c,l.n,l.s))}${l.opt?`<span class="opt">${esc(l.opt)}</span>`:''}</div><div class="qty"><button data-m="${esc(k)}" aria-label="Retirer">−</button><span>${l.q}</span><button data-pl="${esc(k)}" aria-label="Ajouter">+</button></div><div class="amt">${fmt(l.p*l.q)}</div></div>`).join('');
@@ -187,12 +187,26 @@ function renderSheet(){
   $("#send").addEventListener('click',()=>{if(!problem())saveOrd()});
   $("#back").onclick=()=>{sheet=false;render()};
 }
+function renderPick4(){
+  const ok=pick.fr4.length===4,miss=4-pick.fr4.length;
+  const ff=PIZ4.map(x=>{const on=pick.fr4.includes(x);return `<button data-f4="${esc(x)}" aria-pressed="${on}" ${!on&&pick.fr4.length>=4?'disabled':''}>${esc(x)}</button>`}).join('');
+  $("#pickIn").innerHTML=`<header><h1>${esc(label(pick.c,pick.n,pick.s))}</h1><div class="flag"></div><p class="sub">${fmt(pick.p)}</p></header>
+  <div class="card" style="border-color:var(--green)"><b>Obligatoire :</b> choisis tes <b>4 fromages</b>.</div>
+  <div class="card"><h2>Fromages (${pick.fr4.length}/4)</h2><div class="chips">${ff}</div></div>
+  ${ok?'':`<p class="err">Il manque ${miss} fromage${miss>1?'s':''}.</p>`}
+  <button class="btn go" id="pkOk" style="width:100%" ${ok?'':'disabled'}>Ajouter au panier</button>
+  <button class="btn ghost" id="pkNo" style="width:100%;margin-top:10px">Annuler</button>`;
+  document.querySelectorAll('[data-f4]').forEach(b=>b.onclick=()=>{const x=b.dataset.f4,i=pick.fr4.indexOf(x);if(i>=0)pick.fr4.splice(i,1);else if(pick.fr4.length<4)pick.fr4.push(x);renderPick4()});
+  $("#pkNo").onclick=()=>{pick=null;render()};
+  $("#pkOk").onclick=()=>{const p=pick;pick=null;add(p.c,p.n,p.s,p.p,"Fromages : "+p.fr4.join(", "));toast("Ajouté au panier")};
+}
 function renderPick(){
-  const tb=pick.c==="Taco/Burger";const ok=pick.sauces.length===3&&(tb||pick.fromage);
+  if(pick.c==="Pizza"){renderPick4();return}
+  const tb=pick.c==="Taco/Burger"&&pick.n==="Del Bosco";const ok=pick.sauces.length===3&&(tb||pick.fromage);
   const ss=SAUCES.map(x=>{const on=pick.sauces.includes(x);return `<button data-sa="${esc(x)}" aria-pressed="${on}" ${!on&&pick.sauces.length>=3?'disabled':''}>${esc(x)}</button>`}).join('');
   const ff=FROMAGES.map(x=>`<button data-fr="${esc(x)}" aria-pressed="${pick.fromage===x}">${esc(x)}</button>`).join('');
   $("#pickIn").innerHTML=`<header><h1>${esc(label(pick.c,pick.n,pick.s))}</h1><div class="flag"></div><p class="sub">${fmt(pick.p)}</p></header>
-  <div class="card" style="border-color:var(--green)">${tb?'<b>Obligatoire :</b> choisis <b>3 sauces</b>. Le <b>4 fromages</b> est déjà inclus.':'<b>Obligatoire :</b> choisis <b>3 sauces</b> et <b>1 seul fromage</b> pour ce tacos.'}</div>
+  <div class="card" style="border-color:var(--green)">${tb?'<b>Obligatoire :</b> choisis <b>3 sauces</b>. Le <b>4 fromages</b> est déjà inclus.':'<b>Obligatoire :</b> choisis <b>3 sauces</b> et <b>1 seul fromage</b>.'}</div>
   <div class="card"><h2>Sauces (${pick.sauces.length}/3)</h2><div class="chips">${ss}</div></div>
   ${tb?'':`<div class="card"><h2>Fromage (1 seul)</h2><div class="chips">${ff}</div></div>`}
   ${ok?'':`<p class="err">${pick.sauces.length<3?'Il manque '+(3-pick.sauces.length)+' sauce'+(3-pick.sauces.length>1?'s':''):''}${pick.sauces.length<3&&!tb&&!pick.fromage?' et ':''}${!tb&&!pick.fromage?'le fromage':''}.</p>`}
@@ -201,7 +215,7 @@ function renderPick(){
   document.querySelectorAll('[data-sa]').forEach(b=>b.onclick=()=>{const x=b.dataset.sa,i=pick.sauces.indexOf(x);if(i>=0)pick.sauces.splice(i,1);else if(pick.sauces.length<3)pick.sauces.push(x);renderPick()});
   document.querySelectorAll('[data-fr]').forEach(b=>b.onclick=()=>{pick.fromage=b.dataset.fr;renderPick()});
   $("#pkNo").onclick=()=>{pick=null;render()};
-  $("#pkOk").onclick=()=>{const p=pick;pick=null;add(p.c,p.n,p.s,p.p,"Sauces : "+p.sauces.join(", ")+" | Fromage : "+(p.c==="Taco/Burger"?"4 fromages":p.fromage));toast("Ajouté au panier")};
+  $("#pkOk").onclick=()=>{const p=pick;pick=null;add(p.c,p.n,p.s,p.p,"Sauces : "+p.sauces.join(", ")+" | Fromage : "+(p.c==="Taco/Burger"&&p.n==="Del Bosco"?"4 fromages":p.fromage));toast("Ajouté au panier")};
 }
 function toast(t){let e=document.getElementById('tst');if(!e){e=document.createElement('div');e.id='tst';e.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:110px;background:var(--btn);color:var(--btntx);padding:10px 16px;border-radius:999px;font-weight:600;z-index:40';document.body.appendChild(e)}e.textContent=t;e.hidden=false;clearTimeout(e._t);e._t=setTimeout(()=>e.hidden=true,1500)}
 function render(){
